@@ -8,6 +8,7 @@
 #include <TFile.h>
 #include <TTree.h>
 #include <TGraph.h>
+#include <TF1.h>
 
 #define N_ADC 16
 #define N_CLK 1024
@@ -124,6 +125,7 @@ void anaevt(){
     baseline[i]=0;
     integ[i]=0;
     max[i]=0;
+    decay_time[i]=0;
     for(int j=0; j<N_CLK_USE; j++){
       adc_cor[i][j]=0;
     }
@@ -163,5 +165,23 @@ void anaevt(){
   for(int i=0; i<N_ADC; i++){
     //    gr_adc_cor[i] = new TGraph(Form("gr %d", i), N_CLK_USE, clk, adc_cor[i]);
     gr_adc_cor[i] = new TGraph(N_CLK_USE, clk, adc_cor[i]);    
+  }
+
+  // define fit function for 
+  TF1 *func = new TF1("func", "[0]+[1]*exp(-1.0*(x-[2])/[3])", 0, 1024);
+
+  // fit routine
+  for(int i=0; i<N_ANA_ADC; i++){
+    func->SetParameter(0, 0);
+    func->SetParameter(1, 1000);
+    func->SetParameter(2, 0);
+    func->SetParameter(3, 100);    
+    func->SetParLimits(0, -100, 100);
+    func->SetParLimits(1, 0, 10000);
+    func->SetParLimits(3, 0, 10000);    
+    
+    gr_adc_cor[i]->Fit("func", "Q", "", DECAY_FIT_MIN, DECAY_FIT_MAX);
+    decay_time[i] = func->GetParameter(3);
+    if(decay_time[i]>20000) decay_time[i]=0;
   }
 }
