@@ -15,8 +15,8 @@ void fit_wave(int eve=0, int ch=0){
 			Form("waveform eve=%d ch=%d", eve, ch),
 			1024, 0, 1024);
 
-  hist->GetXaxis()->SetTitle("Clock");
-  hist->GetYaxis()->SetTitle("ADC");  
+  hist->GetXaxis()->SetTitle("Time (ns)");
+  hist->GetYaxis()->SetTitle("Pulse height (ch)");  
   
   for(int i=0; i<N_CLK_USE; i++){
     hist->SetBinContent(i+1, adc_cor[ch][i]);

@@ -9,16 +9,20 @@
 #include <TTree.h>
 #include <TGraph.h>
 #include <TF1.h>
+#include <TH1F.h>
+#include <TCanvas.h>
+#include "TApplication.h"
 
 #define N_ADC 16
 #define N_CLK 1024
 #define N_CLK_USE 1023
 
 //////////// Analysis Parameters /////////////////
-const int  N_ANA_ADC = 1;
-const int  BASE_WID = 50;
-const int  DECAY_FIT_MIN = 200;
-const int  DECAY_FIT_MAX = 500;
+const int   N_ANA_ADC = 1;
+const int   BASE_WID = 50;
+const int   DECAY_FIT_MIN = 180;
+const int   DECAY_FIT_MAX = 600;
+const float INTEG_TH = 100;
 //////////////////////////////////////////////////
 
 TFile *fileout;
@@ -30,32 +34,50 @@ int adc[N_ADC][N_CLK_USE];
 float adc_cor[N_ADC][N_CLK_USE];
 float baseline[N_ADC];
 float integ[N_ADC];
+float integ_gate[N_ADC];
+int   pulse_wid[N_ADC];
 float max[N_ADC];
 float decay_time[N_ADC];
+
+TCanvas* c1;
+
 
 void analysis(char *filename);
 void anaevt();
 
 int main(int iarg, char *argv[]) {
+
+
+
   if (iarg != 3) {
+    printf("iarg=%d\n", iarg);
     printf("usage: ./anadrs <input> <output>\n");
     printf("eg.)\n");
     printf("$ ./anadrs 0123.bin 0123.root\n");
     exit(0);
   }
 
+  
   fileout = new TFile(argv[2], "recreate");
   tree = new TTree("tree", "tree");
 
+  //  TApplication app("app", &iarg, argv);
+  
   tree->Branch("eve", &eve, "eve/I");
   tree->Branch("adc", adc, Form("adc[%d][%d]/I",N_ADC, N_CLK_USE));
   tree->Branch("baseline", baseline, Form("baseline[%d]/F",N_ADC));  
   tree->Branch("adc_cor", adc_cor, Form("adc_cor[%d][%d]/F",N_ADC, N_CLK_USE));
   tree->Branch("integ", integ, Form("integ[%d]/F",N_ADC));
+  tree->Branch("integ_gate", integ_gate, Form("integ_gate[%d]/F",N_ADC));
+  tree->Branch("pulse_wid", pulse_wid, Form("pulse_wid[%d]/I",N_ADC));    
   tree->Branch("max", max, Form("max[%d]/F",N_ADC));
   tree->Branch("decay_time", decay_time, Form("decay_time[%d]/F",N_ADC));      
   
+  c1 = new TCanvas();
+  
   analysis(argv[1]);
+
+  //  app.Run();
   
   tree->Write();
   fileout->Close();
@@ -95,7 +117,7 @@ void analysis(char *filename) {
 	  fdin.read((char*)&tmpbuf, sizeof(short));
 	  readcnt ++;
 	  buf = tmpbuf[0];
-	  if(j>0 && j<N_CLK_USE){
+	  if(j>0 && j<=N_CLK_USE){
 	    tmpadc = (short)htons(buf);
 	    adc[i][j-1] = tmpadc;	    	    
 	  }
@@ -107,7 +129,9 @@ void analysis(char *filename) {
       
       tree->Fill();
       eve++;
- 
+
+      //      int a = getchar();
+      
      if(eve%100==0) printf("Analyzed %d events.\n", eve);
     }
 
@@ -124,6 +148,8 @@ void anaevt(){
   for(int i=0; i<N_ANA_ADC; i++){
     baseline[i]=0;
     integ[i]=0;
+    integ_gate[i]=0;
+    pulse_wid[i] =0;
     max[i]=0;
     decay_time[i]=0;
     for(int j=0; j<N_CLK_USE; j++){
@@ -144,6 +170,10 @@ void anaevt(){
     for(int j=0; j<N_CLK_USE; j++){
       adc_cor[i][j] = baseline[i] - adc[i][j];
       integ[i] += adc_cor[i][j];
+      if(adc_cor[i][j]>INTEG_TH){
+	integ_gate[i] += adc_cor[i][j];
+	pulse_wid[i]++;
+      }
     }
   }
 
@@ -159,12 +189,19 @@ void anaevt(){
 
   // define TGraph for fitting the decay time
   TGraph* gr_adc_cor[N_ADC];
+  TH1F* h_adc_cor[N_ADC];  
   float clk[N_CLK_USE];
   for(int i=0; i<N_CLK; i++) clk[i] = i;
 
   for(int i=0; i<N_ADC; i++){
     //    gr_adc_cor[i] = new TGraph(Form("gr %d", i), N_CLK_USE, clk, adc_cor[i]);
-    gr_adc_cor[i] = new TGraph(N_CLK_USE, clk, adc_cor[i]);    
+    gr_adc_cor[i] = new TGraph(N_CLK_USE, clk, adc_cor[i]);
+    gr_adc_cor[i]->SetMarkerStyle(20);
+    h_adc_cor[i] = new TH1F(Form("h%d", i), "hist", 1024, 0, 1024);
+
+    for(int j=0; j<N_CLK_USE; j++){
+      h_adc_cor[i]->SetBinContent(j+1, adc_cor[i][j]);
+    }
   }
 
   // define fit function for 
@@ -180,8 +217,25 @@ void anaevt(){
     func->SetParLimits(1, 0, 10000);
     func->SetParLimits(3, 0, 10000);    
     
-    gr_adc_cor[i]->Fit("func", "Q", "", DECAY_FIT_MIN, DECAY_FIT_MAX);
+    //    gr_adc_cor[i]->Fit("func", "Q", "", DECAY_FIT_MIN, DECAY_FIT_MAX);
+    h_adc_cor[i]->Fit("func", "Q", "", DECAY_FIT_MIN, DECAY_FIT_MAX);    
     decay_time[i] = func->GetParameter(3);
     if(decay_time[i]>20000) decay_time[i]=0;
+
+  for(int i=0; i<N_ADC; i++){
+    gr_adc_cor[i]->Delete();
+    h_adc_cor[i]->Delete();
+  }
+//    if(i==0){
+//      printf("decay time=%f\n", decay_time[0]);
+//      c1->Clear();
+//      c1->cd();
+//      //      gr_adc_cor[0]->Draw("AL");
+//      h_adc_cor[0]->Draw("");      
+//      func->Draw("LSAME");
+//      //c1->Modified(); c1->Update();
+//      c1->Print(Form("eve%d.pdf", eve));
+//    }
+    
   }
 }

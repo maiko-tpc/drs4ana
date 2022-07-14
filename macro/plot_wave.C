@@ -10,13 +10,13 @@ void plot_wave(int eve=0, int ch=0){
 
   TH1F *hist = new TH1F("hist",
 			Form("waveform eve=%d ch=%d", eve, ch),
-			1024, 0, 1024);
+			N_CLK_USE, 0, N_CLK_USE);
   
   hist->GetXaxis()->SetTitle("Clock");
   hist->GetYaxis()->SetTitle("ADC");  
 
   for(int i=0; i<N_CLK_USE; i++){
-    hist->SetBinContent(i+1, adc_cor[ch][i]);
+    hist->SetBinContent(i, adc_cor[ch][i]);
   }
 
   TCanvas *c = new TCanvas("c", "canvas", 600, 400);
