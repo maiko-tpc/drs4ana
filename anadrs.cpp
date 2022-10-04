@@ -10,6 +10,7 @@
 #include <TGraph.h>
 #include <TF1.h>
 #include <TH1F.h>
+#include <TROOT.h>
 #include <TCanvas.h>
 #include "TApplication.h"
 
@@ -19,7 +20,7 @@
 
 //////////// Analysis Parameters /////////////////
 const int   N_ANA_ADC = 1;
-const int   BASE_WID = 50;
+const int   BASE_WID = 10;
 const int   DECAY_FIT_MIN = 180;
 const int   DECAY_FIT_MAX = 600;
 const float INTEG_TH = 100;
@@ -44,6 +45,7 @@ TCanvas* c1;
 
 void analysis(char *filename);
 void anaevt();
+
 
 int main(int iarg, char *argv[]) {
 

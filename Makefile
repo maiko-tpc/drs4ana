@@ -1,9 +1,8 @@
-ROOTFLAGS = `root-config --cflags`
-ROOTLIBS = `root-config --libs`
+GCC = g++ -std=c++0x
+ROOTFLAGS = $(shell root-config --cflags)
+ROOTLIBS = $(shell root-config --libs)
 DEBUG = -Wall
-
 all: anadrs.cpp
-	c++ $(ROOTLIBS) $(ROOTFLAGS) $(DEBUG) -o anadrs anadrs.cpp
-
-clean:
-	rm -f anadrs *.o
+	$(GCC) anadrs.cpp $(ROOTFLAGS) $(DEBUG) $(ROOTLIBS) -o anadrs
+clean:                                                                          
+	rm -f anadrs
