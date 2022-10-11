@@ -10,6 +10,7 @@
 #include <TGraph.h>
 #include <TF1.h>
 #include <TH1F.h>
+#include <TH2F.h>
 #include <TROOT.h>
 #include <TCanvas.h>
 #include "TApplication.h"
@@ -42,6 +43,8 @@ float decay_time[N_ADC];
 
 TCanvas* c1;
 
+TH2F *h_sum[N_ADC];
+
 
 void analysis(char *filename);
 void anaevt();
@@ -49,7 +52,10 @@ void anaevt();
 
 int main(int iarg, char *argv[]) {
 
-
+  for(int i=0; i<N_ADC; i++){
+    h_sum[i] = new TH2F(Form("h%d", i+10), Form("sum of ch%d", i),
+			N_CLK_USE, 0, N_CLK_USE, 4096, -2048, 2048);
+  }
 
   if (iarg != 3) {
     printf("iarg=%d\n", iarg);
@@ -82,6 +88,11 @@ int main(int iarg, char *argv[]) {
   //  app.Run();
   
   tree->Write();
+
+  for(int i=0; i<N_ADC; i++){
+    h_sum[i]->Write();
+  }
+  
   fileout->Close();
 
   return 0;
@@ -171,6 +182,7 @@ void anaevt(){
   for(int i=0; i<N_ANA_ADC; i++){
     for(int j=0; j<N_CLK_USE; j++){
       adc_cor[i][j] = baseline[i] - adc[i][j];
+      h_sum[i]->Fill(j, adc_cor[i][j], 1.0);
       integ[i] += adc_cor[i][j];
       if(adc_cor[i][j]>INTEG_TH){
 	integ_gate[i] += adc_cor[i][j];
